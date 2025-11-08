@@ -9,7 +9,7 @@ from dulwich import porcelain as git
 from . import addresslib
 
 STACK_PATTERN = re.compile(
-    r"(\t\[ *\d+] 0x[0-9A-F]+ .*\+[0-9A-F]+) -> (?P<id>\d+)\+0x[0-9A-F]+"
+    rb"(\t\[ *\d+] 0x[0-9A-F]+ .*\+[0-9A-F]+) -> (?P<id>\d+)\+0x[0-9A-F]+"
 )
 
 
@@ -72,7 +72,7 @@ class CrashLogProcessor:
             crash_log.write_file(log)
 
     @staticmethod
-    def add_name(line: str, id_lookup: Dict[int, str], width: int) -> str:
+    def add_name(line: bytes, id_lookup: Dict[int, bytes], width: int) -> bytes:
         match = STACK_PATTERN.match(line)
         if not match:
             return line
@@ -80,12 +80,12 @@ class CrashLogProcessor:
         stack_frame = match.group(0)
         name = id_lookup.get(int(match.group("id")))
         if not name:
-            return stack_frame + "\n"
+            return stack_frame + b"\n"
 
-        name = name.rstrip("_*")
-        return stack_frame.ljust(width) + name + "\n"
+        name = name.rstrip(b"_*")
+        return stack_frame.ljust(width, b' ') + name + b"\n"
 
-    def lookup_ids(self, id_list: List[int]) -> Dict[int, str]:
+    def lookup_ids(self, id_list: List[int]) -> Dict[int, bytes]:
         database = self.get_database_path()
         if not os.path.exists(database):
             return {}
@@ -101,38 +101,38 @@ class CrashLogProcessor:
 
 class CrashLog:
     def __init__(self, path: Path):
-        self.pre_call_stack = []
-        self.call_stack = []
-        self.post_call_stack = []
+        self.pre_call_stack: List[bytes] = []
+        self.call_stack: List[bytes] = []
+        self.post_call_stack: List[bytes] = []
         self.changed = False
 
         self.read_file(path)
 
-    def visit_call_stack(self, callback: Callable[[str], None]) -> None:
+    def visit_call_stack(self, callback: Callable[[bytes], None]) -> None:
         for line in self.call_stack:
             callback(line)
 
-    def rewrite_call_stack(self, callback: Callable[[str], str]) -> None:
+    def rewrite_call_stack(self, callback: Callable[[bytes], bytes]) -> None:
         new_call_stack = [callback(line) for line in self.call_stack]
         if new_call_stack != self.call_stack:
             self.changed = True
             self.call_stack = new_call_stack
 
     def write_file(self, path: Path) -> None:
-        with path.open("w") as f:
+        with path.open("wb") as f:
             f.writelines(self.pre_call_stack)
             f.writelines(self.call_stack)
             f.writelines(self.post_call_stack)
 
     def read_file(self, path: Path) -> None:
-        with path.open("r", encoding='utf-8') as f:
+        with path.open("rb") as f:
             while True:
                 line = f.readline()
                 if not line:
                     return
 
                 self.pre_call_stack.append(line)
-                if line == "PROBABLE CALL STACK:\n":
+                if line == b"PROBABLE CALL STACK:\n":
                     break
 
             while True:
@@ -140,10 +140,10 @@ class CrashLog:
                 if not line:
                     return
 
-                if line == "\n":
+                if line == b"\n":
                     break
-                elif line == "REGISTERS:\n":
-                    self.post_call_stack.append("\n")
+                elif line == b"REGISTERS:\n":
+                    self.post_call_stack.append(b"\n")
                     break
 
                 self.call_stack.append(line)
@@ -160,11 +160,11 @@ class IdScanner:
     def __init__(self, database: str):
         self.database = database
         self.f = None
-        self.nextLine = ""
+        self.nextLine = b""
 
     def __enter__(self):
         if os.path.exists(self.database):
-            self.f = open(self.database, "r")
+            self.f = open(self.database, "rb")
             self.f.readline()
             self.nextLine = self.f.readline()
         return self
@@ -173,7 +173,7 @@ class IdScanner:
         if self.f:
             self.f.close()
 
-    def find(self, addr_id: int) -> Optional[str]:
+    def find(self, addr_id: int) -> Optional[bytes]:
         while self.nextLine:
             line_id, name = tuple(self.nextLine.split())
             parsed_id = int(line_id)

@@ -83,7 +83,8 @@ class CrashLogLabeler(IPlugin):
     def onUserInterfaceInitializedCallback(self, main_window: "QMainWindow"):
         game = self.organizer.managedGame().gameName()
         self.finder = crashlogs.get_finder(game)
-        if not self.finder:
+
+        if self.finder is None:
             return
         self.processor = CrashLogProcessor(game, lambda file: QFile(str(file)).moveToTrash())
 

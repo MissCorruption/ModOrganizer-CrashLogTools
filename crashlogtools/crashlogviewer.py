@@ -80,7 +80,7 @@ class CrashLogViewer(IPluginTool):
         if not logs_list:
             return
 
-        proxy_model: FileFilterProxyModel = logs_list.model()
+        proxy_model: FileFilterProxyModel = cast(FileFilterProxyModel, logs_list.model())
         if not proxy_model:
             return
 
@@ -90,6 +90,7 @@ class CrashLogViewer(IPluginTool):
 
         # Update the source model with the new directory
         new_dir_str = str(new_dir)
+        # noinspection PyUnresolvedReferences
         self.dialog.setWindowTitle(f"Crash Log Viewer - {new_dir_str}")
         source_model.setRootPath(new_dir_str)
 
@@ -107,6 +108,7 @@ class CrashLogViewer(IPluginTool):
         if self.dialog is not None:
             log_dir: Path = self.finder.get_crash_log_dir(self.organizer)
             self.change_log_directory(log_dir)
+            # noinspection PyUnresolvedReferences
             self.dialog.show()
 
     def onUserInterfaceInitializedCallback(self, main_window: QMainWindow):

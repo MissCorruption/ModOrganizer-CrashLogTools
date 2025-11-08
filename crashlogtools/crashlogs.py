@@ -1,7 +1,7 @@
 import configparser
 import ctypes.wintypes
 from pathlib import Path
-from typing import Set, Optional, Sequence
+from typing import Set, Optional, Sequence, Union
 
 from mobase import IOrganizer
 
@@ -10,7 +10,7 @@ SHGFP_TYPE_CURRENT = 0
 
 
 class CrashLogFinder:
-    def __init__(self, log_directory: str | Path, a_filter: str):
+    def __init__(self, log_directory: Union[str, Path], a_filter: str):
         self.log_directory = log_directory
         self.filter = a_filter
 
@@ -19,7 +19,7 @@ class CrashLogFinder:
         return self._log_directory
 
     @log_directory.setter
-    def log_directory(self, value: str | Path) -> None:
+    def log_directory(self, value: Union[str, Path]) -> None:
         a_value = Path(value).resolve()
         if a_value.is_dir():
             self._log_directory = a_value
