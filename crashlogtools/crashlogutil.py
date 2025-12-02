@@ -77,13 +77,15 @@ class CrashLogProcessor:
         if not match:
             return line
 
+        ending = CrashLogProcessor.get_line_ending(line)
+
         stack_frame = match.group(0)
         name = id_lookup.get(int(match.group("id")))
         if not name:
-            return stack_frame + b"\n"
+            return stack_frame + ending
 
         name = name.rstrip(b"_*")
-        return stack_frame.ljust(width, b' ') + name + b"\n"
+        return stack_frame.ljust(width, b' ') + name + ending
 
     def lookup_ids(self, id_list: List[int]) -> Dict[int, bytes]:
         database = self.get_database_path()
@@ -97,6 +99,16 @@ class CrashLogProcessor:
                 if name:
                     lookup[addr_id] = name
         return lookup
+
+    @staticmethod
+    def get_line_ending(line: bytes) -> bytes:
+        if line.endswith(b"\r\n"):
+            return b"\r\n"
+        if line.endswith(b"\n"):
+            return b"\n"
+        if line.endswith(b"\r"):
+            return b"\r"
+        return b""
 
 
 class CrashLog:
@@ -125,35 +137,28 @@ class CrashLog:
             f.writelines(self.post_call_stack)
 
     def read_file(self, path: Path) -> None:
-        with path.open("rb") as f:
-            while True:
-                line = f.readline()
-                if not line:
-                    return
+        data = path.read_bytes()
+        lines = data.splitlines(keepends=True)
 
-                self.pre_call_stack.append(line)
-                if line == b"PROBABLE CALL STACK:\n":
-                    break
+        it = iter(lines)
 
-            while True:
-                line = f.readline()
-                if not line:
-                    return
+        for line in it:
+            self.pre_call_stack.append(line)
+            if line in (b"PROBABLE CALL STACK:\n", b"PROBABLE CALL STACK:\r\n", b"PROBABLE CALL STACK:\r",):
+                break
+        else:
+            return
 
-                if line == b"\n":
-                    break
-                elif line == b"REGISTERS:\n":
-                    self.post_call_stack.append(b"\n")
-                    break
-
-                self.call_stack.append(line)
-
-            while True:
+        for line in it:
+            if line.strip() == b"":
+                break
+            if line in (b"REGISTERS:\n", b"REGISTERS:\r\n", b"REGISTERS:\r"):
                 self.post_call_stack.append(line)
+                break
+            self.call_stack.append(line)
 
-                line = f.readline()
-                if not line:
-                    return
+        for line in it:
+            self.post_call_stack.append(line)
 
 
 class IdScanner:
